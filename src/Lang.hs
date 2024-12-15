@@ -15,6 +15,9 @@ executeCmd (Word "DUP") (x : stack) = Ok (x : x : stack)
 executeCmd (Word "DROP") (_ : stack) = Ok stack
 executeCmd (Word "SWAP") (x : y : stack) = Ok (y : x : stack)
 executeCmd (Word "OVER") (x : y : stack) = Ok (y : x : y : stack)
+executeCmd (Word "=") (x : y : stack) = Ok ((if y == x then -1 else 0) : stack)
+executeCmd (Word "<") (x : y : stack) = Ok ((if y < x then -1 else 0) : stack)
+executeCmd (Word ">") (x : y : stack) = Ok ((if y > x then -1 else 0) : stack)
 executeCmd _ _ = RuntimeError StackUnderflow
 
 executeProgram :: Program -> Stack -> Result

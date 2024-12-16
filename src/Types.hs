@@ -5,6 +5,12 @@ import Data.Map (Map)
 data Cmd
   = Word String
   | Number Int
+  | If
+  | Then
+  | Else
+  | Do
+  | Loop
+  | I
   deriving (Eq, Show, Read)
 
 newtype Program = Program

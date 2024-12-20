@@ -121,7 +121,7 @@ test-suite colon-test
     hs-source-dirs:   test
 
     -- The entrypoint to the test suite.
-    main-is:          Main.hs
+    main-is:          Spec.hs
 
     -- Test dependencies.
     build-depends:

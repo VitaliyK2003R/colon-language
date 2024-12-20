@@ -34,4 +34,5 @@ data Error
 data Result
   = Ok Stack
   | RuntimeError Error
+  | DictUpdated Dict Stack
   deriving (Eq, Show, Read)

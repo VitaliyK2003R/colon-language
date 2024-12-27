@@ -1,37 +1,27 @@
 module Types where
 
-import Data.Map (Map)
-
-data Cmd
-  = Word String
-  | Number Int
-  | If
-  | Then
-  | Else
-  | Do
-  | Loop
-  | I
-  deriving (Eq, Show, Read)
-
-newtype Program = Program
-  { getTokens :: [Cmd]
-  }
-  deriving (Eq, Show, Read)
-
-newtype Dict = Dict
-  { getDefinitions :: Map String Program
-  }
-  deriving (Eq, Show, Read)
+import qualified Data.Map as Map
 
 type Stack = [Int]
+
+newtype Dict = Dict { getDefinitions :: Map.Map String Program }
+
+data Cmd
+  = Number Int
+  | Word String
+  | PrintString String
+  | Define String Program
+  deriving (Show)
+
+data Program = Program [Cmd] deriving (Show)
+
+data Result
+  = Ok Stack
+  | RuntimeError Error
+  deriving (Show)
 
 data Error
   = StackUnderflow
   | DivisionByZero
   | UnknownWord String
-  deriving (Eq, Show, Read)
-
-data Result
-  = Ok Stack
-  | RuntimeError Error
-  deriving (Eq, Show, Read)
+  deriving (Show)

@@ -42,7 +42,7 @@ parseTokens (token@('.':'"':_) : rest) | last token == '"' =
   in trace ("Parsed string: " ++ parsedString) (PrintString parsedString : parseTokens rest)
 parseTokens (token:rest)
   | null token = parseTokens rest
-  | all (`elem` "-0123456789") token =
+  | all (`elem` "-0123456789") token && (head token /= '-' || length token > 1) =
       trace ("Parsed number: " ++ token) (Number (read token) : parseTokens rest)
   | otherwise =
       trace ("Parsed word: " ++ token) (Word (map toLower token) : parseTokens rest)

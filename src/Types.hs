@@ -11,17 +11,18 @@ data Cmd
   | Word String
   | PrintString String
   | Define String Program
-  deriving (Show)
+  | If Program Program
+  deriving (Eq, Show, Read)
 
-data Program = Program [Cmd] deriving (Show)
+data Program = Program [Cmd] deriving (Eq, Show, Read)
 
 data Result
   = Ok Stack
   | RuntimeError Error
-  deriving (Show)
+  deriving (Eq, Show, Read)
 
 data Error
   = StackUnderflow
   | DivisionByZero
   | UnknownWord String
-  deriving (Show)
+  deriving (Eq, Show, Read)

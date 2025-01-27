@@ -6,10 +6,8 @@ import Debug.Trace (trace)
 
 executeCmd :: Cmd -> Dict -> Stack -> IO (Result, Dict)
 
--- Числа
 executeCmd (Number n) dict stack = return (Ok (n : stack), dict)
 
--- Операции
 executeCmd (Word "+") dict (x : y : stack) = return (Ok ((x + y) : stack), dict)
 executeCmd (Word "+") dict _ = return (RuntimeError StackUnderflow, dict)
 executeCmd (Word "-") dict (x : y : stack) = return (Ok ((y - x) : stack), dict)
@@ -20,7 +18,6 @@ executeCmd (Word "/") dict (0 : _) = return (RuntimeError DivisionByZero, dict)
 executeCmd (Word "/") dict (x : y : stack) = return (Ok ((y `div` x) : stack), dict)
 executeCmd (Word "/") dict _ = return (RuntimeError StackUnderflow, dict)
 
--- Стековые операции
 executeCmd (Word "dup") dict (x : stack) = return (Ok (x : x : stack), dict)
 executeCmd (Word "dup") dict _ = return (RuntimeError StackUnderflow, dict)
 executeCmd (Word "drop") dict (_ : stack) = return (Ok stack, dict)
@@ -50,15 +47,35 @@ executeCmd (Word "key") dict stack = do
   c <- getChar
   return (Ok (fromEnum c : stack), dict)
 
+executeCmd (Word ">") dict (x : y : stack) = return (Ok ((if y > x then 1 else 0) : stack), dict)
+executeCmd (Word ">") dict _ = return (RuntimeError StackUnderflow, dict)
+
+executeCmd (Word "<") dict (x : y : stack) = return (Ok ((if y < x then 1 else 0) : stack), dict)
+executeCmd (Word "<") dict _ = return (RuntimeError StackUnderflow, dict)
+
+executeCmd (Word "=") dict (x : y : stack) = return (Ok ((if y == x then 1 else 0) : stack), dict)
+executeCmd (Word "=") dict _ = return (RuntimeError StackUnderflow, dict)
+
+executeCmd (Word "0=") dict (x : stack) = return (Ok ((if x == 0 then 1 else 0) : stack), dict)
+executeCmd (Word "0=") dict _ = return (RuntimeError StackUnderflow, dict)
+
+executeCmd (Word "mod") dict (x : y : stack)
+  | x == 0    = return (RuntimeError DivisionByZero, dict)
+  | otherwise = return (Ok ((y `mod` x) : stack), dict)
+executeCmd (Word "mod") dict _ = return (RuntimeError StackUnderflow, dict)
+
+executeCmd (If thenBranch elseBranch) dict (x : stack)
+  | x /= 0    = executeProgram thenBranch dict stack
+  | otherwise = executeProgram elseBranch dict stack
+executeCmd (If _ _) dict _ = return (RuntimeError StackUnderflow, dict)
+
 executeCmd (PrintString str) dict stack = do
   putStr str
   return (Ok stack, dict)
 
--- Определение слов
 executeCmd (Define word definition) dict stack =
   return (Ok stack, Dict $ Map.insert word definition (getDefinitions dict))
 
--- Пользовательские слова
 executeCmd (Word word) dict stack =
   case Map.lookup word (getDefinitions dict) of
     Just (Program cmds) -> executeProgram (Program cmds) dict stack

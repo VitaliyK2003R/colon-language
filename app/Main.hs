@@ -37,12 +37,24 @@ parseCommand input =
 
 parseTokens :: [String] -> [Cmd]
 parseTokens [] = []
+parseTokens ("if" : tokens) =
+  let (thenPart, rest1) = break (`elem` ["else", "then"]) tokens
+  in case rest1 of
+       ("else" : rest2) ->
+         let (elsePart, rest3) = break (== "then") rest2
+         in case rest3 of
+              [] -> error "Syntax error: missing 'then' after 'else'"
+              (_ : rest4) -> If (Program (parseTokens thenPart)) (Program (parseTokens elsePart)) : parseTokens rest4
+       ("then" : rest2) -> If (Program (parseTokens thenPart)) (Program []) : parseTokens rest2
+       _ -> error "Syntax error: missing 'then'"
 parseTokens (token@('.':'"':_) : rest) | last token == '"' =
   let parsedString = dropWhile (== ' ') (init (drop 2 token))
   in trace ("Parsed string: " ++ parsedString) (PrintString parsedString : parseTokens rest)
 parseTokens (token:rest)
   | null token = parseTokens rest
-  | all (`elem` "-0123456789") token && (head token /= '-' || length token > 1) =
+  | all (`elem` "-0123456789") token && (case token of
+                                               ('-' : xs) -> not (null xs)
+                                               _          -> True) =
       trace ("Parsed number: " ++ token) (Number (read token) : parseTokens rest)
   | otherwise =
       trace ("Parsed word: " ++ token) (Word (map toLower token) : parseTokens rest)

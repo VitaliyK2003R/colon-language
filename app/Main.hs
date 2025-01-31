@@ -7,33 +7,66 @@ import Data.List (intercalate)
 import Data.Char (toLower)
 import Debug.Trace (trace)
 
+logTrace :: String -> a -> a
+logTrace msg val = trace msg val
+
 tokenize :: String -> [String]
 tokenize "" = []
+tokenize ('(':rest) =
+  let (comment, rest') = extractComment rest 1
+  in logTrace ("Comment detected: " ++ comment ++ " | Remaining: " ++ rest') (tokenize rest')
 tokenize ('.':'"':rest) =
   let (str, rest') = span (/= '"') rest
   in case rest' of
-       [] -> trace ("Unterminated string detected: " ++ str) [".\"" ++ str]
+       [] -> logTrace ("Unterminated string detected: " ++ str) [".\"" ++ str]
        ('"':remaining) ->
          let completeString = ".\"" ++ str ++ "\""
-         in trace ("Completed string token: " ++ completeString) (completeString : tokenize remaining)
-       _ -> error "Unexpected tokenization state"
+         in logTrace ("Completed string token: " ++ completeString) (completeString : tokenize remaining)
 tokenize input =
   let (token, rest) = break (`elem` " \t\n") input
       trimmedToken = dropWhile (`elem` " \t\n") token
   in if null trimmedToken
         then tokenize (dropWhile (`elem` " \t\n") rest)
-        else trace ("Token detected: " ++ trimmedToken) (trimmedToken : tokenize (dropWhile (`elem` " \t\n") rest))
+        else logTrace ("Token detected: " ++ trimmedToken) (trimmedToken : tokenize (dropWhile (`elem` " \t\n") rest))
+
+extractComment :: String -> Int -> (String, String)
+extractComment [] _ = ("", [])
+extractComment (')':rest) 1 = ("", rest)
+extractComment (')':rest) n = let (comment, rest') = extractComment rest (n-1) in (")" ++ comment, rest')
+extractComment ('(':rest) n = let (comment, rest') = extractComment rest (n+1) in ("(" ++ comment, rest')
+extractComment (x:rest) n = let (comment, rest') = extractComment rest n in (x:comment, rest')
+
+checkStackComment :: String -> Bool
+checkStackComment comment =
+  let parts = words comment
+      (inputs, rest) = break (== "--") parts
+      outputs = drop 1 rest
+      hasSeparator = "--" `elem` parts
+      valid = hasSeparator && not (null inputs) && not (null outputs) && length inputs >= length outputs
+  in logTrace ("Checking stack comment: " ++ comment ++ " | Inputs: " ++ show inputs ++ " | Outputs: " ++ show outputs ++ " | Valid: " ++ show valid) valid
 
 parseCommand :: String -> [Cmd]
 parseCommand input =
   let tokens = filter (not . null) (tokenize input)
-      cmds = case tokens of
-        (":":word:definition) | ";" `elem` definition ->
-          let defTokens = takeWhile (/= ";") definition
-              parsedTokens = parseTokens defTokens
-          in [Define (map toLower word) (Program parsedTokens)]
-        _ -> parseTokens tokens
-  in trace ("Parsed commands: " ++ show cmds) cmds
+  in case tokens of
+    (":":word:"(":rest) ->
+      let (comment, defAfterComment) = break (== ")") rest
+      in case defAfterComment of
+        (")" : defTokens) | ";" `elem` defTokens ->
+          let defBody = takeWhile (/= ";") defTokens
+              parsedTokens = parseTokens defBody
+              commentStr = unwords comment
+              isValid = checkStackComment commentStr
+          in logTrace ("Parsed definition: " ++ word ++ " | Comment: " ++ commentStr ++ " | Tokens: " ++ show parsedTokens) $
+             if isValid
+               then [Define (map toLower word) (Program parsedTokens)]
+               else error ("Invalid stack comment: " ++ commentStr)
+        _ -> error "Syntax error in definition"
+    (":":word:definition) | ";" `elem` definition ->
+      let defTokens = takeWhile (/= ";") definition
+          parsedTokens = parseTokens defTokens
+      in logTrace ("Parsed definition (no comment): " ++ word ++ " | Tokens: " ++ show parsedTokens) [Define (map toLower word) (Program parsedTokens)]
+    _ -> logTrace ("Parsed tokens: " ++ show tokens) (parseTokens tokens)
 
 parseTokens :: [String] -> [Cmd]
 parseTokens [] = []
@@ -50,14 +83,16 @@ parseTokens ("if" : tokens) =
 parseTokens (token@('.':'"':_) : rest) | last token == '"' =
   let parsedString = dropWhile (== ' ') (init (drop 2 token))
   in trace ("Parsed string: " ++ parsedString) (PrintString parsedString : parseTokens rest)
-parseTokens (token:rest)
-  | null token = parseTokens rest
+parseTokens (token:rest) = parseSingleToken token : parseTokens rest
+
+parseSingleToken :: String -> Cmd
+parseSingleToken token
   | all (`elem` "-0123456789") token && (case token of
                                                ('-' : xs) -> not (null xs)
                                                _          -> True) =
-      trace ("Parsed number: " ++ token) (Number (read token) : parseTokens rest)
+      trace ("Parsed number: " ++ token) $ Number (read token)
   | otherwise =
-      trace ("Parsed word: " ++ token) (Word (map toLower token) : parseTokens rest)
+      trace ("Parsed word: " ++ token) $ Word (map toLower token)
 
 formatStack :: Stack -> String
 formatStack stack = "| " ++ intercalate " " (map show (reverse stack)) ++ " <- Top"

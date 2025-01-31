@@ -86,6 +86,12 @@ parseTokens (token@('.':'"':_) : rest) | last token == '"' =
 parseTokens (token:rest) = parseSingleToken token : parseTokens rest
 
 parseSingleToken :: String -> Cmd
+parseSingleToken "CELLS" = Word "CELLS"
+parseSingleToken "CREATE" = Word "CREATE"
+parseSingleToken "ALLOT"  = Word "ALLOT"
+parseSingleToken "!"      = Word "!"
+parseSingleToken "@"      = Word "@"
+parseSingleToken "+!"     = Word "+!"
 parseSingleToken token
   | all (`elem` "-0123456789") token && (case token of
                                                ('-' : xs) -> not (null xs)
@@ -97,6 +103,7 @@ parseSingleToken token
 formatStack :: Stack -> String
 formatStack stack = "| " ++ intercalate " " (map show (reverse stack)) ++ " <- Top"
 
+-- Изменения в repl:
 repl :: Stack -> Dict -> IO ()
 repl stack dict = do
   putStrLn "\nВведите программу (или 'exit' для выхода):"
@@ -108,18 +115,19 @@ repl stack dict = do
       else do
         let cmds = parseCommand input
         trace ("Parsed commands: " ++ show cmds) $ return ()
-        (result, newDict) <- executeProgram (Program cmds) dict stack
+        (result, newDict) <- executeProgram (Program cmds) dict (stack, emptyMemory)  -- добавление emptyMemory
         case result of
           Ok newStack -> do
             putStrLn "> ok"
-            putStrLn $ formatStack newStack
-            repl newStack newDict
+            putStrLn $ formatStack (fst newStack)  -- обновляем, чтобы выводить только стек
+            repl (fst newStack) newDict  -- передаем новый стек без памяти
           RuntimeError err -> do
             putStrLn $ "> " ++ show err
             putStrLn $ formatStack stack
             repl stack dict
 
+
 main :: IO ()
 main = do
   putStrLn "Добро пожаловать в интерпретатор языка Colon!"
-  repl [] (Dict Map.empty)
+  repl [] emptyMemory (Dict Map.empty)

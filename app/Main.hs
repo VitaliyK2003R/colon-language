@@ -1,5 +1,4 @@
 module Main where
-
 import Types
 import Lang
 import qualified Data.Map as Map
@@ -18,16 +17,16 @@ tokenize ('(':rest) =
 tokenize ('.':'"':rest) =
   let (str, rest') = span (/= '"') rest
   in case rest' of
-       [] -> logTrace ("Unterminated string detected: " ++ str) [".\"" ++ str]
-       ('"':remaining) ->
-         let completeString = ".\"" ++ str ++ "\""
-         in logTrace ("Completed string token: " ++ completeString) (completeString : tokenize remaining)
+    [] -> logTrace ("Unterminated string detected: " ++ str) [".\"" ++ str]
+    ('"':remaining) ->
+      let completeString = ".\"" ++ str ++ "\""
+      in logTrace ("Completed string token: " ++ completeString) (completeString : tokenize remaining)
 tokenize input =
   let (token, rest) = break (`elem` " \t\n") input
       trimmedToken = dropWhile (`elem` " \t\n") token
   in if null trimmedToken
-        then tokenize (dropWhile (`elem` " \t\n") rest)
-        else logTrace ("Token detected: " ++ trimmedToken) (trimmedToken : tokenize (dropWhile (`elem` " \t\n") rest))
+    then tokenize (dropWhile (`elem` " \t\n") rest)
+    else logTrace ("Token detected: " ++ trimmedToken) (trimmedToken : tokenize (dropWhile (`elem` " \t\n") rest))
 
 extractComment :: String -> Int -> (String, String)
 extractComment [] _ = ("", [])
@@ -58,9 +57,9 @@ parseCommand input =
               commentStr = unwords comment
               isValid = checkStackComment commentStr
           in logTrace ("Parsed definition: " ++ word ++ " | Comment: " ++ commentStr ++ " | Tokens: " ++ show parsedTokens) $
-             if isValid
-               then [Define (map toLower word) (Program parsedTokens)]
-               else error ("Invalid stack comment: " ++ commentStr)
+            if isValid
+            then [Define (map toLower word) (Program parsedTokens)]
+            else error ("Invalid stack comment: " ++ commentStr)
         _ -> error "Syntax error in definition"
     (":":word:definition) | ";" `elem` definition ->
       let defTokens = takeWhile (/= ";") definition
@@ -73,13 +72,13 @@ parseTokens [] = []
 parseTokens ("if" : tokens) =
   let (thenPart, rest1) = break (`elem` ["else", "then"]) tokens
   in case rest1 of
-       ("else" : rest2) ->
-         let (elsePart, rest3) = break (== "then") rest2
-         in case rest3 of
-              [] -> error "Syntax error: missing 'then' after 'else'"
-              (_ : rest4) -> If (Program (parseTokens thenPart)) (Program (parseTokens elsePart)) : parseTokens rest4
-       ("then" : rest2) -> If (Program (parseTokens thenPart)) (Program []) : parseTokens rest2
-       _ -> error "Syntax error: missing 'then'"
+    ("else" : rest2) ->
+      let (elsePart, rest3) = break (== "then") rest2
+      in case rest3 of
+        [] -> error "Syntax error: missing 'then' after 'else'"
+        (_ : rest4) -> If (Program (parseTokens thenPart)) (Program (parseTokens elsePart)) : parseTokens rest4
+    ("then" : rest2) -> If (Program (parseTokens thenPart)) (Program []) : parseTokens rest2
+    _ -> error "Syntax error: missing 'then'"
 parseTokens (token@('.':'"':_) : rest) | last token == '"' =
   let parsedString = dropWhile (== ' ') (init (drop 2 token))
   in trace ("Parsed string: " ++ parsedString) (PrintString parsedString : parseTokens rest)
@@ -87,39 +86,41 @@ parseTokens (token:rest) = parseSingleToken token : parseTokens rest
 
 parseSingleToken :: String -> Cmd
 parseSingleToken token
-  | all (`elem` "-0123456789") token && (case token of
-                                               ('-' : xs) -> not (null xs)
-                                               _          -> True) =
-      trace ("Parsed number: " ++ token) $ Number (read token)
+  | all (`elem` "-0123456789.") token && (case token of
+      ('-' : xs) -> not (null xs)
+      _ -> True) =
+      if '.' `elem` token
+      then trace ("Parsed float: " ++ token) $ Float (read token)
+      else trace ("Parsed number: " ++ token) $ Number (read token)
   | otherwise =
       trace ("Parsed word: " ++ token) $ Word (map toLower token)
 
-formatStack :: Stack -> String
-formatStack stack = "| " ++ intercalate " " (map show (reverse stack)) ++ " <- Top"
+formatStack :: Stack -> [Float] -> String
+formatStack stack floatStack = "| " ++ intercalate " " (map show (reverse stack) ++ map show (reverse floatStack)) ++ " <- Top"
 
-repl :: Stack -> Dict -> IO ()
-repl stack dict = do
+repl :: Stack -> Dict -> [Float] -> IO ()
+repl stack dict floatStack = do
   putStrLn "\nВведите программу (или 'exit' для выхода):"
   input <- getLine
   if input == "exit"
     then putStrLn "Завершение работы."
     else if null input
-      then repl stack dict
+      then repl stack dict floatStack
       else do
         let cmds = parseCommand input
         trace ("Parsed commands: " ++ show cmds) $ return ()
-        (result, newDict) <- executeProgram (Program cmds) dict stack
+        (result, newDict, newFloatStack) <- executeProgram (Program cmds) dict stack floatStack
         case result of
           Ok newStack -> do
             putStrLn "> ok"
-            putStrLn $ formatStack newStack
-            repl newStack newDict
+            putStrLn $ formatStack newStack newFloatStack
+            repl newStack newDict newFloatStack
           RuntimeError err -> do
             putStrLn $ "> " ++ show err
-            putStrLn $ formatStack stack
-            repl stack dict
+            putStrLn $ formatStack stack floatStack
+            repl stack dict floatStack
 
 main :: IO ()
 main = do
   putStrLn "Добро пожаловать в интерпретатор языка Colon!"
-  repl [] (Dict Map.empty)
+  repl [] (Dict Map.empty) []

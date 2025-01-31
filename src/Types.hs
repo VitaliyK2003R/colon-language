@@ -1,13 +1,11 @@
 module Types where
-
 import qualified Data.Map as Map
 
 type Stack = [Int]
-
 newtype Dict = Dict { getDefinitions :: Map.Map String Program }
-
 data Cmd
   = Number Int
+  | Float Float
   | Word String
   | PrintString String
   | Define String Program

@@ -110,7 +110,7 @@ test-suite colon-test
     default-language: GHC2024
 
     -- Modules included in this executable, other than Main.
-    -- other-modules: TypesTest.hs
+    -- other-modules: Lang.hs, Types.hs
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
@@ -122,13 +122,14 @@ test-suite colon-test
     hs-source-dirs:   test
 
     -- The entrypoint to the test suite.
-    main-is:          Main.hs
+    main-is:          Spec.hs
 
     -- Test dependencies.
     build-depends:
             base ^>=4.20.0.0,
             containers >=0.6,
             colon,
+            text,
             tasty,
             tasty-hunit,
             tasty-hedgehog,
